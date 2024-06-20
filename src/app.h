@@ -99,6 +99,9 @@ typedef enum
 } APP_STATES;
 
 
+
+#define APP_READ_BUFFER_SIZE 64
+
 // *****************************************************************************
 /* Application Data
 
@@ -123,6 +126,13 @@ typedef struct
     TCP_OPTION_KEEP_ALIVE_DATA keepAlive;
     
     TCP_SOCKET              socket;
+   
+    /* Application CDC write buffer */
+    uint8_t  writeBuffer[APP_READ_BUFFER_SIZE];
+    /* Number of bytes read from Host */ 
+    uint32_t numBytesRead; 
+    /* Number of bytes read from Host */ 
+    uint32_t numBytesWrite; 
 
 } APP_DATA;
 
@@ -207,6 +217,8 @@ void APP_Initialize ( void );
  */
 
 void APP_Tasks ( void );
+
+void SendTCPMessage( uint8_t *msgTCP );
 
 
 #endif /* _APP_H */

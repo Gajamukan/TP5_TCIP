@@ -120,15 +120,15 @@ void ScanPec12 (bool ValA, bool ValB, bool ValPB)
        DebounceClearReleased(&DescrPB);
    }
    
-   // Gestion inactivité
-   if(Pec12.InactivityDuration < 5000)
-   {
-       Pec12.InactivityDuration++;
-   }
-   else
-   {
-       Pec12.NoActivity = 1;      // Indication d'activité
-   }
+//   // Gestion inactivité
+//   if(Pec12.InactivityDuration < 5000)
+//   {
+//       Pec12.InactivityDuration++;
+//   }
+//   else
+//   {
+//       Pec12.NoActivity = 1;      // Indication d'activité
+//   }
  } // ScanPec12
 
 

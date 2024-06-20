@@ -62,6 +62,7 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 #include "Mc32gest_SerComm.h"
 #include "Mc32gestI2cSeeprom.h"
 #include "Mc32gestSpiDac.h"
+#include "Mc32Delays.h"
 #include "system_config/pic32mx_eth_sk2/framework/driver/tmr/drv_tmr_static.h"
 #include "C:\microchip\harmony\v2_06\bsp\pic32mx_skes\bsp.h"
 
@@ -89,16 +90,22 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 
 #define CYCLEAPPDATA    9
 #define WAITINIT        3000
+#define WAITIP          500
 
 APPGEN_DATA appgenData;
 
 S_ParamGen LocalParamGen;
 S_ParamGen RemoteParamGen;
 
-bool TcpStat ;
+static bool tcpStat = false;
+//bool flagIp = false;
+static uint16_t waitIP = 0;
+bool getTCPMessage = false;
 
-//uint8_t readBuffer[APP_READ_BUFFER_SIZE] = "\n";
-//uint8_t sendBuffer[APP_READ_BUFFER_SIZE] = "\n";
+uint8_t readBuffer[APP_READ_BUFFER_SIZE] = "\n";
+uint8_t sendBuffer[APP_READ_BUFFER_SIZE] = "\n";
+
+IPV4_ADDR  ipAddr;
 
 // *****************************************************************************
 // *****************************************************************************
@@ -115,7 +122,8 @@ void CallbackTimer1()
     static uint8_t cycle = 0;
     
     //mise à jour du PEC12
-    ScanPec12(PORTEbits.RE8,PORTEbits.RE9 ,PORTDbits.RD7);
+    //ScanPec12(PORTEbits.RE8,PORTEbits.RE9 ,PORTDbits.RD7);
+    ScanPec12(PEC12_A,PEC12_B, PEC12_PB);
     
     //attend le temps de l'init
     if(waitInit == WAITINIT)
@@ -198,8 +206,8 @@ void APPGEN_Tasks ( void )
     /* Check the application's current state. */
     switch ( appgenData.state )
     {
-//       static bool SaveToDo = false;
-//       static bool triggerUSB = false;
+       static bool SaveToDo = false;
+       static bool triggerTCP = false;
         
         /* Application's initial state. */
         case APPGEN_STATE_INIT:
@@ -208,10 +216,8 @@ void APPGEN_Tasks ( void )
             lcd_init();
             lcd_bl_on();
 
-            //Init SPI DAC
+            // Init SPI DAC
             SPI_InitLTC2604();
-            
-            //Init I2C
             I2C_InitMCP79411();
 
             // Initialisation PEC12
@@ -220,25 +226,19 @@ void APPGEN_Tasks ( void )
             // Initialisation du menu
             MENU_Initialize(&LocalParamGen);
 
-            RemoteParamGen = LocalParamGen;
-            
             // Initialisation du generateur
             GENSIG_Initialize(&LocalParamGen);
             
-//            //mise à jour du signal
-//            GENSIG_UpdateSignal(&LocalParamGen);
-//            //mettre à jour la période
-//            GENSIG_UpdatePeriode(&LocalParamGen);
+            printf_lcd("Tp5 IpGen 2024");
+            
+            // Affichage
+            lcd_gotoxy(1,2);
+            printf_lcd("Subramaniyam");
             
             // Active les timers 
             DRV_TMR0_Start();
             DRV_TMR1_Start();
-            
-            printf_lcd("TP5 IpGen 2024");
-            lcd_gotoxy(1,2); 
-            printf_lcd("Subra");
-
-            //RemoteParamGen.Frequence = 20;
+            RemoteParamGen.Frequence = 20;
            
             appgenData.state = APPGEN_STATE_WAIT;
 
@@ -253,37 +253,75 @@ void APPGEN_Tasks ( void )
 
         case APPGEN_STATE_SERVICE_TASKS:
         {
-//            if (TcpStat == false)
-//            {
-//                //met à jour le générateur
-//                GENSIG_UpdateSignal(&LocalParamGen);
-                
-                // Execution du menu en local
-                MENU_Execute(&LocalParamGen,true);
-                
-//                I2C_WriteSEEPROM(&RemoteParamGen, 0, sizeof(S_ParamGen)); 
-//                I2C_ReadSEEPROM(&LocalParamGen, 0 , sizeof(S_ParamGen));
-//            }
-//            else
-//            {
-//                //met a jour l'écran
-//                GENSIG_UpdateSignal(&RemoteParamGen);
-//                
-//                //Execution du menu en remote
-//                MENU_Execute(&RemoteParamGen,false);
-//            }
-                
+            //Execution du menu
+            if(tcpStat)
+            {
+                //si une connection s'est établie
+                if(triggerTCP == false)
+                {
+                    //met a jour l'écran
+                    GENSIG_UpdateSignal(&RemoteParamGen);
+                    triggerTCP = true;
+                }          
+                if(getTCPMessage == true)
+                {
+                    //récupère les information et les copies dans les parametres
+                    //et si une demande de sauvegarde est demandé
+                    if(GetMessage(readBuffer, &RemoteParamGen, &SaveToDo))
+                    {
+                        //si demande de sauvegarde est demander
+                        if(SaveToDo)
+                        {
+                            //envoie une demande de sauvegarder dans la mémoire EEPROM
+                            MENU_DemandeSave();
+                            //ajoute le code magic dans les parametres remote
+                            RemoteParamGen.Magic = MAGIC;
+                        }
+                        //génère le message d'envoie avec les parametres reçu
+                        SendMessage(sendBuffer, &RemoteParamGen,SaveToDo);
+                        //envoie le message dans ma mémoire d'envoie du TCP
+                        SendTCPMessage(sendBuffer);
+                        //met a jour les parametres du générateur
+                        GENSIG_UpdateSignal(&RemoteParamGen);
+                    }
+                    //sort du mode inactif
+                    Pec12ClearInactivity();
+                    //fin de la réception du message
+                    getTCPMessage = false;
+                }
+                //met à jour le système en mode remote
+                MENU_Execute(&RemoteParamGen, false);
+            }
+            //s'il n'est pas connecté
+            else
+            {     
+                if(appgenData.newIp == true)
+                {
+                    if(waitIP == WAITIP)
+                    {
+                        appgenData.newIp = false;
+                        waitIP = 0;
+//                        tcpStat = true;
+                    }
+                    else
+                    {
+                        waitIP++;
+                    }
+                }
+                if(triggerTCP == true)
+                {
+                    //met a jour le générateur
+                    GENSIG_UpdateSignal(&LocalParamGen);
+                    //fin de la détéction TCP
+                    triggerTCP = false;
+                }
+                if(waitIP == 0)
+                //met a jour le system en mode local
+                MENU_Execute(&LocalParamGen, true);
+   
+            } 
             appgenData.state = APPGEN_STATE_WAIT;
             
-            if(appgenData.newIp == true)
-            {
-//                appgenData.newIp == false;
-                lcd_gotoxy(1,1);
-                printf_lcd("") ;
-                lcd_gotoxy(1,2);
-                printf_lcd("") ;
-            
-            }
             break;
         }
 
@@ -296,44 +334,25 @@ void APPGEN_Tasks ( void )
     }
 }
 
-//void APPGEN_TCP( uint8_t *Buffer )
-//{    
-//    /* Flag if save needed */
-//    bool saveToDo = false;
-//    
-//    /* Get message from UART */
-//    GetMessage(Buffer, &RemoteParamGen, &saveToDo);
-//    
-//    GENSIG_UpdateSignal(&RemoteParamGen);
-//
-//    if(saveToDo)
-//    {
-//        I2C_WriteSEEPROM(&RemoteParamGen, MCP79411_EEPROM_BEG, sizeof(S_ParamGen));
-//        
-//        lcd_ClearLine(1);
-//        lcd_ClearLine(2);
-//        lcd_ClearLine(3);
-//        lcd_ClearLine(4);
-//        
-//        lcd_gotoxy(4, 2);
-//        printf_lcd("Sauvegarde OK");
-//        
-//        delay_ms(800);
-//                
-//        MENU_Initialize(&RemoteParamGen);
-//    }
-//    
-//    SendMessage(Buffer, &RemoteParamGen, saveToDo);
-//}
+void APP_UpdateStateTCP ( bool connectionState )
+{
+    tcpStat = connectionState;
+}
 
 void APPGEN_DispNewAddress(IPV4_ADDR ipAddr)
 {
-    appgenData.newIp = true;
+    //appgenData.newIp = true;
+    lcd_ClearLine(1);
+    lcd_ClearLine(2);
+    lcd_ClearLine(3);
+    lcd_ClearLine(4);
     
-    lcd_gotoxy(1,4);
-    printf_lcd("IP:%03d.%03d.%03d.%03d ", ipAddr.v[0], ipAddr.v[1], ipAddr.v[2], ipAddr.v[3]);
+    //affichage adr. IP   
+    lcd_gotoxy(8,2);
+    printf_lcd("Adr. IP");
+    lcd_gotoxy(2,3);
+    printf_lcd("IP:%03d.%03d.%03d.%03d ", ipAddr.v[0], ipAddr.v[1], ipAddr.v[2], ipAddr.v[3]); 
 }
-
 /*******************************************************************************
  End of File
  */

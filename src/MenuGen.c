@@ -368,14 +368,14 @@ void MENU_Execute(S_ParamGen *pParam,bool local)
     static int16_t elementMemory = 0;
     static uint8_t elementSelect = 0;
     static uint8_t menuModeSystem = MENU_SELECT;
-//    static uint8_t triggerUSB = 0;
+    static uint8_t triggerTCP = 0;
 
     DoDebounce (&DescrS9, PORTGbits.RG12);
-//    if(triggerUSB != local)
-//    {
-//        Pec12ClearInactivity();
-//        triggerUSB = local;
-//    }
+    if(triggerTCP != local)
+    {
+        Pec12ClearInactivity();
+        triggerTCP = local;
+    }
         
     switch(menuModeSystem)
     {

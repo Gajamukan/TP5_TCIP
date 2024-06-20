@@ -104,8 +104,8 @@ extern "C" {
 #define SYS_PORT_C_LAT          0x0000
 #define SYS_PORT_C_ODC          0x0000
 
-#define SYS_PORT_D_TRIS         0xFF08
-#define SYS_PORT_D_LAT          0x0080
+#define SYS_PORT_D_TRIS         0xFFC8
+#define SYS_PORT_D_LAT          0x0000
 #define SYS_PORT_D_ODC          0x0000
 
 #define SYS_PORT_E_TRIS         0xFF0F
@@ -283,7 +283,7 @@ extern "C" {
 
 /*** DHCP Configuration ***/
 #define TCPIP_STACK_USE_DHCP_CLIENT
-#define TCPIP_DHCP_TIMEOUT                          5
+#define TCPIP_DHCP_TIMEOUT                          6
 #define TCPIP_DHCP_TASK_TICK_RATE                   5
 #define TCPIP_DHCP_HOST_NAME_SIZE                   20
 #define TCPIP_DHCP_CLIENT_CONNECT_PORT              68

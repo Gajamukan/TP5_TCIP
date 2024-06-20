@@ -66,6 +66,7 @@ extern "C" {
 
 #endif
 // DOM-IGNORE-END 
+  
 
 // *****************************************************************************
 // *****************************************************************************
@@ -95,7 +96,6 @@ typedef enum
 
 } APPGEN_STATES;
 
-
 // *****************************************************************************
 /* Application Data
 
@@ -113,7 +113,6 @@ typedef struct
 {
     /* The application's current state */
     APPGEN_STATES state;
-    
     bool newIp;
     char Str[21];
 
@@ -202,7 +201,7 @@ void APPGEN_Initialize ( void );
 
 void APPGEN_Tasks( void );
 
-//void APPGEN_TCP( uint8_t *Buffer );
+void APP_UpdateStateTCP ( bool connectionState );
 
 void APPGEN_DispNewAddress(IPV4_ADDR ipAddr);
 

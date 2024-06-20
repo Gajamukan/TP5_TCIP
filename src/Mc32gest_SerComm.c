@@ -17,7 +17,7 @@
 // Met à jour les paramètres du generateur a partir du message recu
 // Format du message
 //  !S=TF=2000A=10000O=+5000W=0#
-//  !S=PF=2000A=10000O=-5000D=100W=1#
+//  !S=CF=2000A=10000O=-5000D=100W=1#
 
 //USBReadBuffer : buffer de donnée
 //pParam : les paramettres du générateur

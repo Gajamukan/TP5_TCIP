@@ -81,10 +81,9 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
 */
 
 APP_DATA appData;
+APPGEN_DATA appgenData;
 
-bool tcpStat, flagIp;
-
-S_ParamGen RemoteParamGen;
+bool FlagSendMsg = false;
 
 
 // *****************************************************************************
@@ -207,11 +206,15 @@ void APP_Tasks ( void )
                     dwLastIP[i].Val = ipAddr.Val;
                     
                     //Réception IP
-                    flagIp = true;
+                    appgenData.newIp = true;
 
                     SYS_CONSOLE_MESSAGE(TCPIP_STACK_NetNameGet(netH));
                     SYS_CONSOLE_MESSAGE(" IP Address: ");
                     SYS_CONSOLE_PRINT("%d.%d.%d.%d \r\n", ipAddr.v[0], ipAddr.v[1], ipAddr.v[2], ipAddr.v[3]);
+                    lcd_ClearLine(1);
+                    lcd_ClearLine(2);
+                    lcd_ClearLine(3);
+                    lcd_ClearLine(4);
                     APPGEN_DispNewAddress(ipAddr);
                 }
                 appData.state = APP_TCPIP_OPENING_SERVER;
@@ -227,7 +230,6 @@ void APP_Tasks ( void )
                 break;
             }
             
-            //SCA set keepalive 
             // Nécessaire si on veut que TCPIP_TCP_IsConnected() détecte déconnexion du câble
             appData.keepAlive.keepAliveEnable = true;
             appData.keepAlive.keepAliveTmo = 1000; 
@@ -249,7 +251,7 @@ void APP_Tasks ( void )
             else
             {
                 // We got a connection
-                tcpStat = true; //Remote
+                APP_UpdateStateTCP(true); //Remote
                 appData.state = APP_TCPIP_SERVING_CONNECTION;
                 SYS_CONSOLE_MESSAGE("Received a connection\r\n");
             }
@@ -258,10 +260,9 @@ void APP_Tasks ( void )
 
         case APP_TCPIP_SERVING_CONNECTION:
         {
-//            bool savetodo;
             if (!TCPIP_TCP_IsConnected(appData.socket))
             {
-                tcpStat = false; //Local
+                APP_UpdateStateTCP(false); //Local
                 appData.state = APP_TCPIP_CLOSING_CONNECTION;
                 SYS_CONSOLE_MESSAGE("Connection was closed\r\n");
                 break;
@@ -305,21 +306,9 @@ void APP_Tasks ( void )
                         SYS_CONSOLE_MESSAGE("Connection was closed\r\n");
                     }
                 }
-
-//                //Fonction GetMessage
-//                GetMessage(appData.readBuffer , &RemoteParamGen , &savetodo );
-//                
-//                //Fonction SendMessage
-//                SendMessage(appData.readBuffer , &RemoteParamGen , savetodo );
                 
-//                int16_t Size = TCPIP_TCP_GetIsReady(appData.socket);
-//                if (GetMessage((char*)AppBuffer) == 1)
-//                {
-//                    SendMessage((char*) AppBuffer, Size);
-//                    //Transfer the data out of our local processing buffer and into the TCP TX FIFO.
-//                    SYS_CONSOLE_PRINT("Server Sending %s\r\n", AppBuffer);
-//                    TCPIP_TCP_ArrayPut(appData.socket, AppBuffer , Size);
-//                }
+                // Gestion message //
+//                APPGEN_TCP(AppBuffer);
    
                 // Transfer the data out of our local processing buffer and into the TCP TX FIFO.
                 SYS_CONSOLE_PRINT("Server Sending %s\r\n", AppBuffer);
@@ -343,8 +332,21 @@ void APP_Tasks ( void )
     }
 }
 
- 
-
+//copie les parametres du système pour envoyer en USB
+void SendTCPMessage( uint8_t *msgTCP )
+{
+    appData.numBytesWrite = 0;
+    uint8_t indexBuffer = 0;
+    //remplir le buffer t'en que le tableau d'envoie est plein ou le message comnplet
+    while((appData.numBytesWrite < APP_READ_BUFFER_SIZE) && (appData.writeBuffer[indexBuffer-1] != '#'))
+    {
+        appData.writeBuffer[indexBuffer] = msgTCP[indexBuffer];
+        appData.numBytesWrite++;
+        indexBuffer++;
+    }
+    appData.numBytesWrite = indexBuffer+1;
+    FlagSendMsg = true;
+}
 /*******************************************************************************
  End of File
  */
